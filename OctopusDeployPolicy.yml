@@ -1,0 +1,418 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description:
+  Resources, Policies and Roles for Octopus Deploy
+
+Parameters:
+  S3PayloadBucketName:
+    Description: Name of Octopus Payload S3 bucket
+    Type : 'String'
+  
+Resources:
+  OctopusDeployPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: "OctopusDeployPolicy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - "ec2:CreateTags"
+          - "ec2:DescribeAccountAttributes"
+          - "ec2:DescribeAvailabilityZones"
+          - "ec2:DescribeImageAttribute"
+          - "ec2:DescribeImages"
+          - "ec2:DescribeImportImageTasks"
+          - "ec2:DescribeInstances"
+          - "ec2:DescribeInstanceStatus"
+          - "ec2:DescribeSubnets"
+          - "ec2:DescribeTags"
+          - "ec2:ImportImage"
+          - "ec2:TerminateInstances"
+          - "ec2:CreateVolume"
+          - "ec2:AttachVolume"
+          - "ec2:DescribeVolumes"
+          - "ec2:DescribeSecurityGroups"
+          - "ec2:CreateNetworkInterface"
+          - "ec2:DescribeNetworkInterfaces"
+          - "ec2:DescribeVpcs"
+          Resource: "*"
+          Condition:
+            StringEquals:
+              aws:RequestedRegion: ap-southeast-2
+            StringNotEquals:
+              'ec2:ResourceTag/cns-guardrail': 'true'
+
+        # EC2  Permissions
+        - Effect: Allow 
+          Action:
+          - "ec2:RunInstances"
+          - "iam:GetRole"
+          - "iam:PassRole"
+          - "iam:CreateServiceLinkedRole"
+          - "ec2:DescribeIamInstanceProfileAssociations"
+          - "ec2:DisassociateIamInstanceProfile"
+          - "ec2:AssociateIamInstanceProfile"
+          - "ec2:ReplaceIamInstanceProfileAssociation"
+          Resource: "*"
+          Condition:
+            StringEquals:
+              aws:RequestedRegion: ap-southeast-2
+
+        # EC2  IAM Permissions
+        - Effect: Deny 
+          Action:
+          - "iam:GetRole"
+          - "iam:PassRole"
+          Resource:
+          - "arn:aws:iam::*:role/cns*"
+          - "arn:aws:iam::*:role/acoe-cns*"
+        
+        # EFS starts here
+        - Effect: Allow
+          Action:
+          - elasticfilesystem:ModifyMountTargetSecurityGroups
+          - elasticfilesystem:DescribeMountTargets
+          - elasticfilesystem:CreateTags
+          - elasticfilesystem:DeleteTags
+          - elasticfilesystem:DescribeTags
+          - elasticfilesystem:CreateMountTarget
+          - elasticfilesystem:DescribeLifecycleConfiguration
+          - elasticfilesystem:PutLifecycleConfiguration
+          - elasticfilesystem:DescribeFileSystems
+          - elasticfilesystem:DeleteMountTarget
+          - elasticfilesystem:DeleteFileSystem
+          - elasticfilesystem:DescribeMountTargetSecurityGroups
+          - elasticfilesystem:UpdateFileSystem
+          - elasticfilesystem:CreateFileSystem
+          - elasticfilesystem:PutFileSystemPolicy
+          Resource: '*'
+          Condition:
+            StringEquals:
+              aws:RequestedRegion: ap-southeast-2
+        # EFS ends here
+
+        # S3 Permissions
+        - Effect: Allow         
+          Action:
+            - "s3:HeadBucket"
+            - "s3:ListAllMyBuckets"
+            - "s3:ListBucket"
+            - "s3:CreateBucket"
+            - "s3:AbortMultipartUpload"
+            - "s3:DeleteBucket"
+            - "s3:DeleteObjectTagging"
+            - "s3:DeleteObjectVersion"
+            - "s3:DeleteObjectVersionTagging"
+            - "s3:PutAccelerateConfiguration"
+            - "s3:PutAnalyticsConfiguration"
+            - "s3:PutBucketCORS"
+            - "s3:PutBucketLogging"
+            - "s3:PutBucketNotification"
+            - "s3:PutBucketPublicAccessBlock"
+            - "s3:PutBucketRequestPayment"
+            - "s3:PutBucketTagging"
+            - "s3:PutBucketVersioning"
+            - "s3:PutBucketWebsite"
+            - "s3:PutInventoryConfiguration"
+            - "s3:PutIpConfiguration"
+            - "s3:PutLifecycleConfiguration"
+            - "s3:PutMetricsConfiguration"
+            - "s3:PutObject"
+            - "s3:PutObjectTagging"
+            - "s3:PutObjectVersionTagging"
+            - "s3:PutReplicationConfiguration"
+            - "s3:ReplicateDelete"
+            - "s3:ReplicateObject"
+            - "s3:ReplicateTags"
+            - "s3:RestoreObject"
+            - "s3:PutEncryptionConfiguration"
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - "s3:DeleteObject"
+            - "s3:DeleteObjectAcl"
+            - "s3:DeleteObjectTagging"
+            - "s3:GetObjectAcl"
+            - "s3:GetObjectTagging"
+            - "s3:PutObject"
+            - "s3:PutObject"
+            - "s3:PutObjectAcl"
+            - "s3:PutObjectTagging"
+          Resource:
+            - !Sub 'arn:aws:s3:::${S3PayloadBucketName}/*'
+            - !Sub 'arn:aws:s3:::${S3PayloadBucketName}'
+
+        # CFN Permissions
+        - Effect: Allow  
+          Action:
+            - "cloudformation:DescribeStackResource"
+            - "cloudformation:DescribeStacks"
+            - "cloudformation:ListStackResources"
+            - "cloudformation:ListStacks"
+            - "cloudformation:DescribeChangeSet"
+            - "cloudformation:CreateChangeSet"
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - "cloudformation:CreateStack"
+            - "cloudformation:DeleteStack"
+            - "cloudformation:DescribeStackEvents"
+            - "cloudformation:DescribeStackResources"
+            - "cloudformation:UpdateStack"
+            - "cloudformation:ExecuteChangeSet"
+          Resource: "*"
+
+        # STS  Permissions
+        - Effect: Allow  
+          Action:
+            - "sts:DecodeAuthorizationMessage"
+          Resource: "*"
+
+        # KMS Permissions
+        - Effect: Allow
+          Action:
+            - "kms:CreateGrant"
+            - "kms:Decrypt"
+            - "kms:DescribeKey"
+            - "kms:Encrypt"
+            - "kms:GenerateDataKey*"
+            - "kms:ReEncrypt*"
+          Resource: "*"
+ 
+ # Route e53 Permissions
+        - Effect: Allow
+          Action:
+            - "route53:ChangeResourceRecordSets"
+            - "route53:GetChange"
+            - "route53:GetHostedZone"
+            - "route53:ListHealthChecks"
+            - "route53:ListHostedZones"
+            - "route53:ListResourceRecordSets"
+            - "route53:UpdateHealthCheck"
+          Resource: "*"
+    
+  
+  # ElasticLoadBalancer Permissions
+        - Effect: Allow
+          Action:
+            - "elasticloadbalancing:AddListenerCertificates"
+            - "elasticloadbalancing:AddTags"
+            - "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer"
+            - "elasticloadbalancing:AttachLoadBalancerToSubnets"
+            - "elasticloadbalancing:ConfigureHealthCheck"
+            - "elasticloadbalancing:CreateListener"
+            - "elasticloadbalancing:CreateLoadBalancer"
+            - "elasticloadbalancing:CreateLoadBalancerListeners"
+            - "elasticloadbalancing:CreateLoadBalancerPolicy"
+            - "elasticloadbalancing:CreateRule"
+            - "elasticloadbalancing:CreateTargetGroup"
+            - "elasticloadbalancing:DeleteListener"
+            - "elasticloadbalancing:DeleteLoadBalancer"
+            - "elasticloadbalancing:DeleteLoadBalancerListeners"
+            - "elasticloadbalancing:DeleteLoadBalancerPolicy"
+            - "elasticloadbalancing:DeleteTargetGroup"
+            - "elasticloadbalancing:DeregisterTargets"
+            - "elasticloadbalancing:DescribeAccountLimits"
+            - "elasticloadbalancing:DescribeInstanceHealth"
+            - "elasticloadbalancing:DescribeListenerCertificates"
+            - "elasticloadbalancing:DescribeListeners"
+            - "elasticloadbalancing:DescribeLoadBalancerAttributes"
+            - "elasticloadbalancing:DescribeLoadBalancerPolicies"
+            - "elasticloadbalancing:DescribeLoadBalancers"
+            - "elasticloadbalancing:DescribeRules"
+            - "elasticloadbalancing:DescribeSSLPolicies"
+            - "elasticloadbalancing:DescribeTags"
+            - "elasticloadbalancing:DescribeTargetGroupAttributes"
+            - "elasticloadbalancing:DescribeTargetGroups"
+            - "elasticloadbalancing:DescribeTargetHealth"
+            - "elasticloadbalancing:DisableAvailabilityZonesForLoadBalancer"
+            - "elasticloadbalancing:EnableAvailabilityZonesForLoadBalancer"
+            - "elasticloadbalancing:ModifyListener"
+            - "elasticloadbalancing:ModifyLoadBalancerAttributes"
+            - "elasticloadbalancing:ModifyRule"
+            - "elasticloadbalancing:ModifyTargetGroup"
+            - "elasticloadbalancing:ModifyTargetGroupAttributes"
+            - "elasticloadbalancing:RegisterTargets"
+            - "elasticloadbalancing:RemoveListenerCertificates"
+            - "elasticloadbalancing:SetIpAddressType"
+            - "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer"
+            - "elasticloadbalancing:SetLoadBalancerPoliciesOfListener"
+            - "elasticloadbalancing:SetRulePriorities"
+            - "elasticloadbalancing:SetSecurityGroups"
+            - "elasticloadbalancing:DescribeProvisionedCapacity"
+            - "elasticloadbalancing:modify-provisioned-capacity"
+          Resource: "*"
+          Condition:
+            StringEquals:
+              aws:RequestedRegion: ap-southeast-2  
+        - Effect: Deny
+          Action:
+            - "elasticloadbalancing:AddListenerCertificates"
+            - "elasticloadbalancing:AddTags"
+            - "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer"
+            - "elasticloadbalancing:AttachLoadBalancerToSubnets"
+            - "elasticloadbalancing:ConfigureHealthCheck"
+            - "elasticloadbalancing:CreateListener"
+            - "elasticloadbalancing:CreateLoadBalancer"
+            - "elasticloadbalancing:CreateLoadBalancerListeners"
+            - "elasticloadbalancing:CreateLoadBalancerPolicy"
+            - "elasticloadbalancing:CreateRule"
+            - "elasticloadbalancing:CreateTargetGroup"
+            - "elasticloadbalancing:DeleteListener"
+            - "elasticloadbalancing:DeleteLoadBalancer"
+            - "elasticloadbalancing:DeleteLoadBalancerListeners"
+            - "elasticloadbalancing:DeleteLoadBalancerPolicy"
+            - "elasticloadbalancing:DeleteTargetGroup"
+            - "elasticloadbalancing:DeregisterTargets"
+            - "elasticloadbalancing:DescribeAccountLimits"
+            - "elasticloadbalancing:DescribeInstanceHealth"
+            - "elasticloadbalancing:DescribeListenerCertificates"
+            - "elasticloadbalancing:DescribeListeners"
+            - "elasticloadbalancing:DescribeLoadBalancerAttributes"
+            - "elasticloadbalancing:DescribeLoadBalancerPolicies"
+            - "elasticloadbalancing:DescribeLoadBalancers"
+            - "elasticloadbalancing:DescribeRules"
+            - "elasticloadbalancing:DescribeSSLPolicies"
+            - "elasticloadbalancing:DescribeTags"
+            - "elasticloadbalancing:DescribeTargetGroupAttributes"
+            - "elasticloadbalancing:DescribeTargetGroups"
+            - "elasticloadbalancing:DescribeTargetHealth"
+            - "elasticloadbalancing:DisableAvailabilityZonesForLoadBalancer"
+            - "elasticloadbalancing:EnableAvailabilityZonesForLoadBalancer"
+            - "elasticloadbalancing:ModifyListener"
+            - "elasticloadbalancing:ModifyLoadBalancerAttributes"
+            - "elasticloadbalancing:ModifyRule"
+            - "elasticloadbalancing:ModifyTargetGroup"
+            - "elasticloadbalancing:ModifyTargetGroupAttributes"
+            - "elasticloadbalancing:RegisterTargets"
+            - "elasticloadbalancing:RemoveListenerCertificates"
+            - "elasticloadbalancing:SetIpAddressType"
+            - "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer"
+            - "elasticloadbalancing:SetLoadBalancerPoliciesOfListener"
+            - "elasticloadbalancing:SetRulePriorities"
+            - "elasticloadbalancing:SetSecurityGroups"
+          Resource: "*"
+
+  # Secret Manager 
+        - Effect: Allow
+          Action:
+            - secretsmanager:CreateSecret
+          Resource: '*'
+          Condition:
+            StringEquals:
+              aws:RequestedRegion: ap-southeast-2
+        - Effect: Allow
+          Action:
+            - secretsmanager:UntagResource
+            - secretsmanager:DeleteResourcePolicy
+            - secretsmanager:PutSecretValue
+            - secretsmanager:DeleteSecret
+            - secretsmanager:CancelRotateSecret
+            - secretsmanager:UpdateSecret
+            - secretsmanager:RestoreSecret
+            - secretsmanager:RotateSecret
+            - secretsmanager:UpdateSecretVersionStage
+            - secretsmanager:TagResource
+          Resource: "*"
+          Condition:
+            StringEquals:
+              aws:RequestedRegion:
+                - ap-southeast-2
+
+  # Auto Scaling Permissions
+        - Effect: Allow
+          Action:
+            - "autoscaling:AttachLoadBalancers"
+            - "autoscaling:CreateAutoScalingGroup"
+            - "autoscaling:CreateLaunchConfiguration"
+            - "autoscaling:CreateOrUpdateTags"
+            - "autoscaling:DeleteAutoScalingGroup"
+            - "autoscaling:DeleteLaunchConfiguration"
+            - "autoscaling:DeleteLifecycleHook"
+            - "autoscaling:DeleteNotificationConfiguration"
+            - "autoscaling:DeletePolicy"
+            - "autoscaling:DeleteScheduledAction"
+            - "autoscaling:DescribeAutoScalingGroups"
+            - "autoscaling:DescribeAutoScalingInstances"
+            - "autoscaling:DescribeLaunchConfigurations"
+            - "autoscaling:DescribeLifecycleHooks"
+            - "autoscaling:DescribeLifecycleHookTypes"
+            - "autoscaling:DescribeScalingActivities"
+            - "autoscaling:DetachLoadBalancerTargetGroups"
+            - "autoscaling:DetachLoadBalancers"
+            - "autoscaling:EnableMetricsCollection"
+            - "autoscaling:PutLifecycleHook"
+            - "autoscaling:PutNotificationConfiguration"
+            - "autoscaling:PutScalingPolicy"
+            - "autoscaling:PutScheduledUpdateGroupAction"
+            - "autoscaling:SetDesiredCapacity"
+            - "autoscaling:UpdateAutoScalingGroup"
+          Resource: "*"
+          Condition:
+            StringNotEquals:
+              autoscaling:ResourceTag/cns-guardrail: 'true'
+            StringEquals:
+              aws:RequestedRegion: ap-southeast-2          
+
+        - Effect: Allow
+          Action: 
+            - "rds:ResetDBParameterGroup"
+            - "rds:CreateOptionGroup"
+            - "rds:ModifyDBParameterGroup"
+            - "rds:AddSourceIdentifierToSubscription"
+            - "rds:CopyDBParameterGroup"
+            - "rds:ModifyDBInstance"
+            - "rds:DeleteDBInstance"
+            - "rds:CreateDBParameterGroup"
+            - "rds:DeleteDBSnapshot"
+            - "rds:StartDBInstance"
+            - "rds:CreateDBSnapshot"
+            - "rds:RestoreDBInstanceFromDBSnapshot"
+            - "rds:DeleteDBParameterGroup"
+            - "rds:RemoveTagsFromResource"
+            - "rds:CreateEventSubscription"
+            - "rds:ModifyOptionGroup"
+            - "rds:DeleteOptionGroup"
+            - "rds:DeleteEventSubscription"
+            - "rds:RemoveSourceIdentifierFromSubscription"
+            - "rds:CreateDBInstance"
+            - "rds:AddTagsToResource"
+            - "rds:CopyDBSnapshot"
+            - "rds:ModifyEventSubscription"
+            - "rds:StopDBInstance"
+            - "rds:CopyOptionGroup"
+            - "rds:RebootDBInstance"
+            - "rds:ApplyPendingMaintenanceAction"
+            - "rds:RestoreDBInstanceToPointInTime"
+            - "rds:CreateDBCluster"
+            - "rds:CreateDBClusterEndpoint"
+            - "rds:DeleteDBClusterEndpoint"
+            - "rds:DescribeDBClusterEndpoints"
+            - "rds:DescribeDBClusters"
+            - "rds:ModifyCurrentDBClusterCapacity"
+            - "rds:ModifyDBCluster"
+            - "rds:ModifyDBClusterEndpoint"
+            - "rds:RestoreDBClusterFromS3"
+            - "rds:CopyDBClusterSnapshot"
+            - "rds:CreateDBClusterParameterGroup"
+            - "rds:CreateDBClusterSnapshot"
+            - "rds:CreateDBInstanceReadReplica"
+            - "rds:DeleteDBCluster"
+            - "rds:DeleteDBClusterParameterGroup"
+            - "rds:DeleteDBClusterSnapshot"
+            - "rds:FailoverDBCluster"
+            - "rds:ModifyDBClusterParameterGroup"
+            - "rds:ModifyDBClusterSnapshotAttribute"
+            - "rds:ModifyDBSnapshotAttribute"
+            - "rds:PromoteReadReplica"
+            - "rds:RestoreDBClusterFromSnapshot"
+            - "rds:RestoreDBClusterToPointInTime"
+          Resource: "*"
+          Condition: 
+            StringEquals: 
+              aws:RequestedRegion: ap-southeast-2
+            StringLike: 
+              rds:DatabaseEngine: aurora-postgres
+ 
