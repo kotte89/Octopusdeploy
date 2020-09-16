@@ -1,0 +1,101 @@
+---
+#This is where you would specify the stacks for the features that you want to deploy
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Create Stack for tenant's custom services
+
+Mappings:
+  EnvironmentMap:
+    "481142416087":
+      Name: non-prd
+      VPCId: vpc-0a0b60555e3950a03
+      EccfSGId: sg-05834117110d0fd39
+      S3InstallBucketName: exacto-dev-bucket
+      
+ 
+Conditions:
+  NonProd: !Equals [ !FindInMap [EnvironmentMap, !Ref "AWS::AccountId", Name], non-prd ]
+
+
+Parameters:
+  TemplateLocation:
+    Type: "String"
+  VPCId:
+    Description: VPC ID from Parameter Store
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /CNS/resources/vpc_id
+  S3KeyId:
+    Description: ID of S3 KMS custom key
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /CNS/resources/s3_key_id
+  EccfSGId:
+    Description: ECCF security group
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /CNS/resources/eccf_sg
+  IcSGId:
+    Description: IC security group
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /CNS/resources/ic_sg
+  MgmtSGId:
+    Description: Management security group
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /CNS/resources/mgmt_sg
+  SecSGId:
+    Description: Sec security group
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /CNS/resources/sec_sg
+  ResSGId:
+    Description: Restricted security group
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /CNS/resources/res_sg
+
+Resources:
+  NonProdSGStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${TemplateLocation}/sg-test-custom.yml'
+      Parameters:
+        VpcId: !FindInMap [EnvironmentMap, !Ref "AWS::AccountId", "VPCId"]
+        EccfSGId: !FindInMap [EnvironmentMap, !Ref "AWS::AccountId", "EccfSGId"]
+        
+  EC2InstancePolicy:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${TemplateLocation}/Exacto_Dev_AppServer_Role.yml'
+      Parameters:
+        S3PayloadBucketName: !FindInMap [EnvironmentMap, !Ref "AWS::AccountId", S3InstallBucketName]
+
+  OctopusDeployPolicy:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${TemplateLocation}/OctopusDeployPolicy.yml'
+      Parameters:
+        S3PayloadBucketName: !FindInMap [EnvironmentMap, !Ref "AWS::AccountId", S3InstallBucketName]
+   
+  OctopusDeployPolicyPart2:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${TemplateLocation}/OctopusDeployPolicyPart2.yml'
+      Parameters:
+        S3PayloadBucketName: !FindInMap [EnvironmentMap, !Ref "AWS::AccountId", S3InstallBucketName]
+        
+  DupDocsNonProdDevSG:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${TemplateLocation}/DupDocs_NonProd_Dev_SG.yml'
+      Parameters:
+        VPCId: !Ref VPCId
+
+  DupDocsNonProdDevEC2SG:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${TemplateLocation}/DupDocs_NonProd_Dev_EC2_Outbound_SG.yml'
+      Parameters:
+        VPCId: !Ref VPCId
+  
+  DupDocsNonProdDevEFSSG:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${TemplateLocation}/DupDocs_NonProd_Dev_EFS_SG.yml'
+      Parameters:
+        DupDocsNonProdDevEFSSG: !GetAtt DupDocsNonProdDevEC2SG.Outputs.DupDocsNonProdDevEFSSG
